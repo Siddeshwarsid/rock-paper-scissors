@@ -1,43 +1,48 @@
-node {
-   
-   //Declare a global variable for mvnHome
-
-   stage('Version') { 
-
-	  //build job: 'Version Check'
-          
-   }
-
-   stage('Environment') {
-       
-       // build job: 'Enviro-Check'
-       
-   }
-
-   stage('Document') {
-   
-	  //build job: 'Generate-JavaDoc', parameters: [booleanParam(name: 'generate_javadoc', value: false), stringParam(name: 'javadoc_location', value: 'C:\\_javadoc00')]
-
-   }
-
-   stage('Compile'){
-  
-       // build job: 'Compile-RPS'
-   }
-   
-   stage('Acceptance') {
-       
-         //def response = input message: 'UAT Tests',   parameters: [choice(choices: 'Pass\nFail', description: 'Proceed or Abort?', name: 'Pass or Fail?')]
-
-   }
-   
-   stage('Conclusion') {
-      def response = input message: 'Whatcha think?', parameters: [choice(choices: 'Yes\nNo', description: 'Proceed or Abort?', name: 'Wasn\'t that cool?')]
-        
-      if (response=="Yes") {
-         echo "I agree!"
-      } else {
-         echo "You are hard to please."
+pipeline {
+  agent any
+  tools {
+    maven 'maven-3.6.1'
+  }
+  stages {
+//     stage('check git secrets') {
+//       steps{
+//         sh 'rm trufflehog || true'
+//         sh 'docker pull gesellix/trufflehog'
+//         sh 'docker run gesellix/trufflehog --json https://github.com/Siddeshwarsid/webapps-tests.git > trufflehog'
+//         sh 'cat trufflehog'
+//       }
+//     }
+//     stage('source composition analysis') {
+//       steps {
+//         sh 'rm owasp* || true'
+//         sh ' wget "https://raw.githubusercontent.com//Siddeshwarsid/webapps-tests/main/owasp-dependency-check.sh" '
+//         sh 'chmod +x owasp-dependency-check.sh'
+//         sh 'bash owasp-dependency-check.sh'
+//       }
+//     }
+    stage('test') {
+      steps {
+        sh 'mvn clean install'
       }
-   }
+      post {
+        always {
+          junit allowEmptyResults:true, testResults: 'target/surefire-reports/*.xml'
+        }
+      }
+    }
+    
+    stage('build') {
+      steps {
+        sh 'mvn clean package'
+      }
+    }
+    
+    stage('Deploy to tomcat') {
+      steps {
+        sshagent(['tomcat']) {
+          sh 'scp -o StrictHostKeyChecking=no target/*.jar ubuntu@54.90.147.139:/prod/apache-tomcat-8.5.81/webapps/webappT.jar'
+        }
+      }
+    }
+  }
 }
